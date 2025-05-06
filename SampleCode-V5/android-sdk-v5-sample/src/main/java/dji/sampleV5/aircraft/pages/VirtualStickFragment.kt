@@ -164,7 +164,14 @@ class VirtualStickFragment : DJIFragment() {
         }
         
         binding?.btnAutoFlight?.setOnClickListener {
-            ToastUtils.showToast("Starting auto flight sequence: Take off → Forward → Spin → Land")
+            // Initialize the view model with context and API key
+            // IMPORTANT: In a real application, you should store the API key securely and not hardcode it
+            val openaiApiKey = "YOUR_OPENAI_API_KEY" // Replace with your actual API key
+            
+            // Initialize with context and API key
+            virtualStickVM.initialize(requireContext(), openaiApiKey)
+            
+            ToastUtils.showToast("Starting auto flight sequence with AI image analysis")
             virtualStickVM.performAutoFlight(
                 startTakeOff = {
                     basicAircraftControlVM.startTakeOff(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {

@@ -94,3 +94,4 @@ android-sdk-v5-ivt/tools/results/
 
 .idea/
 .userinfo
+**/.claude/settings.local.json
