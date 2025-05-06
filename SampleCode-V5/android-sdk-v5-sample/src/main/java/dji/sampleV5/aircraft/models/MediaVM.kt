@@ -18,6 +18,7 @@ import dji.sdk.keyvalue.value.camera.CameraMode
 import dji.sdk.keyvalue.value.common.ComponentIndexType
 import dji.v5.common.callback.CommonCallbacks
 import dji.v5.common.error.IDJIError
+import dji.v5.common.error.ErrorType
 import dji.v5.common.error.RxError
 import dji.v5.common.utils.CallbackUtils
 import dji.v5.common.utils.RxUtil
@@ -336,14 +337,16 @@ class MediaVM : DJIViewModel() {
                                                 LogUtils.e(logTag, errorMsg)
                                                 callback.onFailure(object : IDJIError {
                                                     override fun description(): String = "Failed to decode image"
-                                                    override fun errorCode(): Long = -1
+                                                    override fun errorCode(): String = "-1"
+                                                    override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                                 })
                                             }
                                         } catch (e: IOException) {
                                             LogUtils.e(logTag, "Error closing streams: ${e.message}")
                                             callback.onFailure(object : IDJIError {
                                                 override fun description(): String = "Error processing image: ${e.message}"
-                                                override fun errorCode(): Long = -1
+                                                override fun errorCode(): String = "-1"
+                                                override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                             })
                                         }
                                     }
@@ -352,7 +355,8 @@ class MediaVM : DJIViewModel() {
                                         LogUtils.e(logTag, "Failed to download image: ${error?.description()}")
                                         callback.onFailure(error ?: object : IDJIError {
                                             override fun description(): String = "Unknown error downloading image"
-                                            override fun errorCode(): Long = -1
+                                            override fun errorCode(): String = "-1"
+                                            override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                         })
                                     }
                                 })
@@ -360,14 +364,16 @@ class MediaVM : DJIViewModel() {
                                 LogUtils.e(logTag, "Error setting up image download: ${e.message}")
                                 callback.onFailure(object : IDJIError {
                                     override fun description(): String = "Error setting up image download: ${e.message}"
-                                    override fun errorCode(): Long = -1
+                                    override fun errorCode(): String = "-1"
+                                    override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                 })
                             }
                         } else {
                             LogUtils.e(logTag, "No media files found")
                             callback.onFailure(object : IDJIError {
                                 override fun description(): String = "No media files found"
-                                override fun errorCode(): Long = -1
+                                override fun errorCode(): String = "-1"
+                                override fun errorType(): ErrorType = ErrorType.UNKNOWN
                             })
                         }
                     }
