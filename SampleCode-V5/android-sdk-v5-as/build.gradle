@@ -32,6 +32,7 @@ allprojects {
             url KOTLIN_MAVEN
         }
         maven { url JITPACK_MAVEN_URL }
+        maven { url "https://chaquo.com/maven" }
         repositories {
             flatDir {
                 dirs new File(rootProject.projectDir.getAbsolutePath() + '/libs')

@@ -22,7 +22,8 @@ android {
         
         // Python configuration for Chaquopy
         python {
-            buildPython "cp310"  // Version of Python to use
+            // Use system Python for building
+            buildPython "python3"  // Use python3 command
             pip {
                 install "openai"
                 install "opencv-python"
