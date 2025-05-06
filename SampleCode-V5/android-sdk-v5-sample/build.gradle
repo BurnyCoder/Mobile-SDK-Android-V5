@@ -23,10 +23,13 @@ android {
         // Python configuration for Chaquopy
         python {
             // Use system Python for building
-            buildPython "python3"  // Use python3 command
+            version "3.8"
             pip {
-                install "openai"
-                install "opencv-python"
+                install "numpy==1.19.5"
+                install "opencv-python==4.5.1.48"
+                install "seaborn==0.11.0" // or compatible version
+                install "openai==1.39.0"
+                install "pydantic<2"
                 install "python-dotenv"
                 install "ultralytics"
             }
