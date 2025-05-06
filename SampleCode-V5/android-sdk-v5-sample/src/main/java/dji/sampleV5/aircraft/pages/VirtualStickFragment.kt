@@ -38,6 +38,13 @@ class VirtualStickFragment : DJIFragment() {
     private var binding: FragVirtualStickPageBinding? = null
     private val deviation: Double = 0.02
 
+    // Define the hardcoded API key here.
+    // IMPORTANT: Replace "YOUR_OPENAI_API_KEY_HERE" with your actual OpenAI API key.
+    // For security reasons, it's generally not recommended to hardcode API keys directly in source code for production applications.
+    // Consider using secure storage mechanisms or build configurations for API keys.
+    private val openAIApiKey = "YOUR_OPENAI_API_KEY_HERE"
+
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -164,46 +171,37 @@ class VirtualStickFragment : DJIFragment() {
         }
         
         binding?.btnAutoFlight?.setOnClickListener {
-            // Prompt for API key if needed
-            KeyValueDialogUtil.showInputDialog(
-                activity,
-                "Enter OpenAI API Key",
-                "",
-                "OpenAI API Key required for image analysis",
-                false
-            ) { apiKey ->
-                if (apiKey.isNullOrEmpty()) {
-                    ToastUtils.showToast("API Key is required for image analysis")
-                    return@showInputDialog
-                }
-                
-                // Initialize with context and API key
-                virtualStickVM.initialize(requireContext(), apiKey)
-                
-                ToastUtils.showToast("Starting image capture and AI analysis")
-                virtualStickVM.performAutoFlight(
-                    startTakeOff = {
-                        basicAircraftControlVM.startTakeOff(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
-                            override fun onSuccess(t: EmptyMsg?) {
-                                ToastUtils.showToast("Take off initiated successfully")
-                            }
-                            override fun onFailure(error: IDJIError) {
-                                ToastUtils.showToast("Failed to take off: $error")
-                            }
-                        })
-                    },
-                    startLanding = {
-                        basicAircraftControlVM.startLanding(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
-                            override fun onSuccess(t: EmptyMsg?) {
-                                ToastUtils.showToast("Landing initiated successfully")
-                            }
-                            override fun onFailure(error: IDJIError) {
-                                ToastUtils.showToast("Failed to land: $error")
-                            }
-                        })
-                    }
-                )
+            if (openAIApiKey == "YOUR_OPENAI_API_KEY_HERE" || openAIApiKey.isBlank()) {
+                ToastUtils.showToast("OpenAI API Key is not set. Please hardcode it in VirtualStickFragment.kt")
+                return@setOnClickListener
             }
+
+            // Initialize with context and hardcoded API key
+            virtualStickVM.initialize(requireContext(), openAIApiKey)
+            
+            ToastUtils.showToast("Starting image capture and AI analysis")
+            virtualStickVM.performAutoFlight(
+                startTakeOff = {
+                    basicAircraftControlVM.startTakeOff(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
+                        override fun onSuccess(t: EmptyMsg?) {
+                            ToastUtils.showToast("Take off initiated successfully")
+                        }
+                        override fun onFailure(error: IDJIError) {
+                            ToastUtils.showToast("Failed to take off: $error")
+                        }
+                    })
+                },
+                startLanding = {
+                    basicAircraftControlVM.startLanding(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
+                        override fun onSuccess(t: EmptyMsg?) {
+                            ToastUtils.showToast("Landing initiated successfully")
+                        }
+                        override fun onFailure(error: IDJIError) {
+                            ToastUtils.showToast("Failed to land: $error")
+                        }
+                    })
+                }
+            )
         }
     }
 
