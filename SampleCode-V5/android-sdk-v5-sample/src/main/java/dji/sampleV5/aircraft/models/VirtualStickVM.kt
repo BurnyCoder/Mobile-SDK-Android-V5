@@ -129,6 +129,70 @@ class VirtualStickVM : DJIViewModel() {
         KeyManager.getInstance().cancelListen(this)
         VirtualStickManager.getInstance().clearAllVirtualStickStateListener()
     }
+    
+    fun performAutoFlight(startTakeOff: () -> Unit, startLanding: () -> Unit) {
+        val flightHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        
+        // Step 1: Take off
+        startTakeOff()
+        
+        // Step 2: After take off, enable virtual stick to control flight
+        flightHandler.postDelayed({
+            enableVirtualStick(object : CommonCallbacks.CompletionCallback {
+                override fun onSuccess() {
+                    setSpeedLevel(0.3) // Set moderate speed
+                    
+                    // Step 3: Move forward
+                    flightHandler.postDelayed({
+                        // Set pitch to move forward
+                        setRightPosition(0, 300)
+                        
+                        // Step 4: After moving forward, stop and prepare to spin
+                        flightHandler.postDelayed({
+                            setRightPosition(0, 0)
+                            
+                            // Step 5: Spin (rotate)
+                            flightHandler.postDelayed({
+                                // Set yaw to rotate
+                                setLeftPosition(300, 0)
+                                
+                                // Step 6: After complete rotation, stop spinning
+                                flightHandler.postDelayed({
+                                    setLeftPosition(0, 0)
+                                    
+                                    // Step 7: Disable virtual stick before landing
+                                    flightHandler.postDelayed({
+                                        disableVirtualStick(object : CommonCallbacks.CompletionCallback {
+                                            override fun onSuccess() {
+                                                // Step 8: Land the drone
+                                                flightHandler.postDelayed({
+                                                    startLanding()
+                                                }, 1000)
+                                            }
+                                            
+                                            override fun onFailure(error: IDJIError) {
+                                                // Still try to land even if disabling virtual stick fails
+                                                flightHandler.postDelayed({
+                                                    startLanding()
+                                                }, 1000)
+                                            }
+                                        })
+                                    }, 1000)
+                                }, 3000) // Spin for 3 seconds
+                            }, 1000)
+                        }, 3000) // Move forward for 3 seconds
+                    }, 3000) // Wait for take off to complete
+                }
+                
+                override fun onFailure(error: IDJIError) {
+                    // If enabling virtual stick fails, just land
+                    flightHandler.postDelayed({
+                        startLanding()
+                    }, 1000)
+                }
+            })
+        }, 5000) // Wait for take off to complete before enabling virtual stick
+    }
 
     data class VirtualStickStateInfo(
         var state: VirtualStickState = VirtualStickState(false, FlightControlAuthority.UNKNOWN, false),

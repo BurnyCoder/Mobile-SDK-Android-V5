@@ -162,6 +162,32 @@ class VirtualStickFragment : DJIFragment() {
         binding?.btnDisableVirtualStickAdvancedMode?.setOnClickListener {
             virtualStickVM.disableVirtualStickAdvancedMode()
         }
+        
+        binding?.btnAutoFlight?.setOnClickListener {
+            ToastUtils.showToast("Starting auto flight sequence: Take off → Forward → Spin → Land")
+            virtualStickVM.performAutoFlight(
+                startTakeOff = {
+                    basicAircraftControlVM.startTakeOff(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
+                        override fun onSuccess(t: EmptyMsg?) {
+                            ToastUtils.showToast("Take off initiated successfully")
+                        }
+                        override fun onFailure(error: IDJIError) {
+                            ToastUtils.showToast("Failed to take off: $error")
+                        }
+                    })
+                },
+                startLanding = {
+                    basicAircraftControlVM.startLanding(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
+                        override fun onSuccess(t: EmptyMsg?) {
+                            ToastUtils.showToast("Landing initiated successfully")
+                        }
+                        override fun onFailure(error: IDJIError) {
+                            ToastUtils.showToast("Failed to land: $error")
+                        }
+                    })
+                }
+            )
+        }
     }
 
     private fun initStickListener() {
