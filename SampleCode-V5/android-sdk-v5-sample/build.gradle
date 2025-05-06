@@ -149,5 +149,5 @@ dependencies {
     implementation deps.lynx
     
     // Python for Android (Chaquopy)
-    implementation 'com.chaquo.python:android:13.0.0'
+    implementation 'com.chaquo.python:android:16.0.0'
 }
