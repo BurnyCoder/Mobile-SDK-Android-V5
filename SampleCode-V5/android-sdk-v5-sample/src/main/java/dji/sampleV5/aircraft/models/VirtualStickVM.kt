@@ -188,12 +188,30 @@ class VirtualStickVM : DJIViewModel() {
             return
         }
         
+        // Log start of image capture process
+        Log.d(TAG, "Starting image capture process")
+        
         // First, set camera to photo mode
         KeyManager.getInstance().setValue(
             KeyTools.createKey(CameraKey.KeyCameraMode, ComponentIndexType.LEFT_OR_MAIN),
             CameraMode.PHOTO_NORMAL,
-            null
+            object : CommonCallbacks.CompletionCallback {
+                override fun onSuccess() {
+                    Log.d(TAG, "Successfully set camera to photo mode")
+                    captureFrame(stepDescription)
+                }
+                
+                override fun onFailure(error: IDJIError) {
+                    Log.e(TAG, "Failed to set camera mode: ${error.description()}")
+                    // Try to capture frame anyway
+                    captureFrame(stepDescription)
+                }
+            }
         )
+    }
+    
+    private fun captureFrame(stepDescription: String) {
+        Log.d(TAG, "Adding camera frame listener to capture image")
         
         // Add frame listener to get a preview frame
         MediaDataCenter.getInstance().cameraStreamManager.addFrameListener(
@@ -209,9 +227,10 @@ class VirtualStickVM : DJIViewModel() {
                     format: ICameraStreamManager.FrameFormat
                 ) {
                     try {
-                        Log.d(TAG, "Frame received: $width x $height, format: $format")
+                        Log.d(TAG, "Frame received: $width x $height, format: $format, data length: ${frameData.size}")
                         
                         // For RGBA_8888 format, convert to JPEG
+                        Log.d(TAG, "Converting camera frame to JPEG")
                         val yuvImage = YuvImage(
                             frameData,
                             ImageFormat.NV21,
@@ -228,15 +247,20 @@ class VirtualStickVM : DJIViewModel() {
                         )
                         
                         val jpegData = out.toByteArray()
+                        Log.d(TAG, "JPEG data size: ${jpegData.size} bytes")
+                        
                         val base64Image = Base64.encodeToString(jpegData, Base64.NO_WRAP)
+                        Log.d(TAG, "Base64 encoded image size: ${base64Image.length} characters")
                         
                         // Send to OpenAI with step description as context
-                        analyzeImageWithOpenAI(base64Image, "Current drone movement: $stepDescription. Describe what the drone camera sees.")
+                        Log.d(TAG, "Sending image to OpenAI for analysis")
+                        analyzeImageWithOpenAI(base64Image, "Current drone camera view: $stepDescription. Describe what can be seen in this image in detail.")
                         
                         // Remove listener after getting the frame
                         MediaDataCenter.getInstance().cameraStreamManager.removeFrameListener(this)
+                        Log.d(TAG, "Removed camera frame listener")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error processing frame: ${e.message}")
+                        Log.e(TAG, "Error processing frame: ${e.message}", e)
                     }
                 }
             })
@@ -245,13 +269,17 @@ class VirtualStickVM : DJIViewModel() {
     private fun analyzeImageWithOpenAI(base64Image: String, prompt: String) {
         if (openaiApiKey.isEmpty()) {
             Log.e(TAG, "OpenAI API key is not set")
+            speakText("Error: OpenAI API key is not set")
             return
         }
         
+        // Log that we're starting the OpenAI API call
+        Log.d(TAG, "Setting up OpenAI API call with prompt: $prompt")
+        
         val client = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)  // Increased timeout for better reliability
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .build()
             
         try {
@@ -274,8 +302,8 @@ class VirtualStickVM : DJIViewModel() {
             
             // Build full request body
             val requestBodyJson = JSONObject().apply {
-                put("model", "gpt-4o") // Or appropriate vision-capable model
-                put("max_tokens", 300)
+                put("model", "gpt-4o") // Using GPT-4o for vision capabilities
+                put("max_tokens", 500) // Increased for more detailed descriptions
                 
                 val messagesArray = JSONArray()
                 messagesArray.put(JSONObject().apply {
@@ -286,7 +314,10 @@ class VirtualStickVM : DJIViewModel() {
                 put("messages", messagesArray)
             }
             
-            val requestBody = requestBodyJson.toString().toRequestBody(JSON_MEDIA_TYPE)
+            val requestJson = requestBodyJson.toString()
+            Log.d(TAG, "OpenAI API request prepared (payload size: ${requestJson.length})")
+            
+            val requestBody = requestJson.toRequestBody(JSON_MEDIA_TYPE)
             
             val request = Request.Builder()
                 .url(OPENAI_API_URL)
@@ -294,136 +325,148 @@ class VirtualStickVM : DJIViewModel() {
                 .addHeader("Content-Type", "application/json")
                 .post(requestBody)
                 .build()
-                
+            
+            Log.d(TAG, "Sending API request to OpenAI...")
+            speakText("Analyzing drone camera image...")
+            
             client.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
-                    Log.e(TAG, "OpenAI API call failed: ${e.message}")
+                    Log.e(TAG, "OpenAI API call failed: ${e.message}", e)
+                    speakText("Error connecting to OpenAI API. Please check your internet connection and API key.")
                 }
                 
                 override fun onResponse(call: Call, response: Response) {
                     val responseBody = response.body?.string()
+                    Log.d(TAG, "Received response from OpenAI, status code: ${response.code}")
+                    
                     if (response.isSuccessful && responseBody != null) {
                         try {
+                            Log.d(TAG, "Response body: $responseBody")
                             val jsonResponse = JSONObject(responseBody)
                             val choices = jsonResponse.getJSONArray("choices")
+                            
                             if (choices.length() > 0) {
                                 val firstChoice = choices.getJSONObject(0)
                                 val message = firstChoice.getJSONObject("message")
                                 val content = message.getString("content")
                                 
+                                // Log the full content
+                                Log.d(TAG, "OpenAI response content: $content")
+                                
                                 // Speak the result using TTS
                                 speakText(content)
-                                
-                                Log.d(TAG, "OpenAI response: $content")
+                            } else {
+                                Log.e(TAG, "OpenAI response has no choices")
+                                speakText("Error: No response content received from OpenAI")
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error parsing OpenAI response: ${e.message}")
+                            Log.e(TAG, "Error parsing OpenAI response: ${e.message}", e)
+                            speakText("Error processing the AI response")
                         }
                     } else {
-                        Log.e(TAG, "OpenAI API error: ${response.code}. Response: $responseBody")
+                        val errorMsg = "OpenAI API error: ${response.code}. Response: $responseBody"
+                        Log.e(TAG, errorMsg)
+                        
+                        // Give a more user-friendly error message based on status code
+                        val errorSpeech = when(response.code) {
+                            401 -> "Authentication error. Please check your API key."
+                            429 -> "Rate limit exceeded. Please try again later."
+                            500, 502, 503, 504 -> "OpenAI service error. Please try again later."
+                            else -> "Error from OpenAI API. Please check logs for details."
+                        }
+                        
+                        speakText(errorSpeech)
                     }
                 }
             })
         } catch (e: Exception) {
-            Log.e(TAG, "Error preparing OpenAI request: ${e.message}")
+            Log.e(TAG, "Error preparing OpenAI request: ${e.message}", e)
+            speakText("Error preparing request to OpenAI")
         }
     }
     
     private fun speakText(text: String) {
-        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "drone_analysis_${System.currentTimeMillis()}")
+        Log.d(TAG, "Speaking text: $text")
+        
+        if (textToSpeech == null) {
+            Log.e(TAG, "TextToSpeech is not initialized")
+            return
+        }
+        
+        // Check if TTS is ready
+        if (textToSpeech?.engines?.isEmpty() == true) {
+            Log.e(TAG, "No TTS engines available")
+            return
+        }
+        
+        // Add a small delay to ensure TTS is ready
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            val utteranceId = "drone_analysis_${System.currentTimeMillis()}"
+            
+            // Set up utterance progress listener for better feedback
+            textToSpeech?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {
+                    Log.d(TAG, "TTS started speaking")
+                }
+                
+                override fun onDone(utteranceId: String?) {
+                    Log.d(TAG, "TTS finished speaking")
+                }
+                
+                override fun onError(utteranceId: String?) {
+                    Log.e(TAG, "TTS error occurred")
+                }
+                
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    Log.e(TAG, "TTS error occurred with code: $errorCode")
+                }
+            })
+            
+            // Check if text is too long and trim if needed
+            val maxLength = 4000 // TTS has character limits
+            val textToSpeak = if (text.length > maxLength) {
+                Log.w(TAG, "Text too long for TTS, trimming to $maxLength characters")
+                text.substring(0, maxLength) + "... (text trimmed)"
+            } else {
+                text
+            }
+            
+            val params = Bundle()
+            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+            
+            val result = textToSpeech?.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+            
+            if (result == TextToSpeech.ERROR) {
+                Log.e(TAG, "Error speaking text")
+            }
+        }, 500) // Small delay to ensure TTS is ready
     }
     
     fun performAutoFlight(startTakeOff: () -> Unit, startLanding: () -> Unit) {
         val flightHandler = android.os.Handler(android.os.Looper.getMainLooper())
         
-        // Step 1: Take off
-        startTakeOff()
-        
-        // Step 2: After take off, enable virtual stick to control flight
-        flightHandler.postDelayed({
-            // Capture image after takeoff
-            captureAndAnalyzeImage("Just took off, hovering in place")
+        try {
+            // Check if we have camera access before proceeding
+            val cameraStreamManager = MediaDataCenter.getInstance().cameraStreamManager
+            if (cameraStreamManager == null) {
+                Log.e(TAG, "Failed to get camera stream manager")
+                speakText("Error: Cannot access camera stream manager")
+                return
+            }
             
-            enableVirtualStick(object : CommonCallbacks.CompletionCallback {
-                override fun onSuccess() {
-                    setSpeedLevel(0.3) // Set moderate speed
-                    
-                    // Step 3: Move forward
-                    flightHandler.postDelayed({
-                        // Set pitch to move forward
-                        setRightPosition(0, 300)
-                        
-                        // Capture image during forward movement
-                        flightHandler.postDelayed({
-                            captureAndAnalyzeImage("Moving forward")
-                        }, 1500) // Capture in middle of forward movement
-                        
-                        // Step 4: After moving forward, stop and prepare to spin
-                        flightHandler.postDelayed({
-                            setRightPosition(0, 0)
-                            
-                            // Capture image after stopping forward movement
-                            captureAndAnalyzeImage("Stopped after moving forward")
-                            
-                            // Step 5: Spin (rotate)
-                            flightHandler.postDelayed({
-                                // Set yaw to rotate
-                                setLeftPosition(300, 0)
-                                
-                                // Capture image during rotation
-                                flightHandler.postDelayed({
-                                    captureAndAnalyzeImage("Currently spinning/rotating")
-                                }, 1500) // Capture in middle of rotation
-                                
-                                // Step 6: After complete rotation, stop spinning
-                                flightHandler.postDelayed({
-                                    setLeftPosition(0, 0)
-                                    
-                                    // Capture image after rotation is complete
-                                    captureAndAnalyzeImage("Completed 360-degree rotation")
-                                    
-                                    // Step 7: Disable virtual stick before landing
-                                    flightHandler.postDelayed({
-                                        disableVirtualStick(object : CommonCallbacks.CompletionCallback {
-                                            override fun onSuccess() {
-                                                // Step 8: Land the drone
-                                                flightHandler.postDelayed({
-                                                    startLanding()
-                                                    
-                                                    // Capture final image during landing
-                                                    flightHandler.postDelayed({
-                                                        captureAndAnalyzeImage("Currently landing")
-                                                    }, 1500)
-                                                }, 1000)
-                                            }
-                                            
-                                            override fun onFailure(error: IDJIError) {
-                                                // Still try to land even if disabling virtual stick fails
-                                                flightHandler.postDelayed({
-                                                    startLanding()
-                                                    
-                                                    // Capture final image during landing
-                                                    flightHandler.postDelayed({
-                                                        captureAndAnalyzeImage("Currently landing")
-                                                    }, 1500)
-                                                }, 1000)
-                                            }
-                                        })
-                                    }, 2000) // Wait a bit longer after rotation to analyze the image
-                                }, 3000) // Spin for 3 seconds
-                            }, 2000) // Wait a bit longer after stopping to analyze the image
-                        }, 3000) // Move forward for 3 seconds
-                    }, 3000) // Wait for take off to complete
-                }
-                
-                override fun onFailure(error: IDJIError) {
-                    // If enabling virtual stick fails, just land
-                    flightHandler.postDelayed({
-                        startLanding()
-                    }, 1000)
-                }
-            })
-        }, 5000) // Wait for take off to complete before enabling virtual stick
+            Log.d(TAG, "Starting image capture test sequence")
+            speakText("Starting camera capture test. Please wait...")
+            
+            // For testing purposes, just capture and analyze a single image
+            flightHandler.postDelayed({
+                Log.d(TAG, "Capturing a single image and sending to OpenAI for analysis")
+                captureAndAnalyzeImage("Test image capture from drone camera")
+            }, 2000) // Small delay to allow TTS to complete initial announcement
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in auto flight sequence: ${e.message}", e)
+            speakText("Error starting camera test: ${e.message}")
+        }
     }
 
     data class VirtualStickStateInfo(

@@ -164,36 +164,46 @@ class VirtualStickFragment : DJIFragment() {
         }
         
         binding?.btnAutoFlight?.setOnClickListener {
-            // Initialize the view model with context and API key
-            // IMPORTANT: In a real application, you should store the API key securely and not hardcode it
-            val openaiApiKey = "YOUR_OPENAI_API_KEY" // Replace with your actual API key
-            
-            // Initialize with context and API key
-            virtualStickVM.initialize(requireContext(), openaiApiKey)
-            
-            ToastUtils.showToast("Starting auto flight sequence with AI image analysis")
-            virtualStickVM.performAutoFlight(
-                startTakeOff = {
-                    basicAircraftControlVM.startTakeOff(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
-                        override fun onSuccess(t: EmptyMsg?) {
-                            ToastUtils.showToast("Take off initiated successfully")
-                        }
-                        override fun onFailure(error: IDJIError) {
-                            ToastUtils.showToast("Failed to take off: $error")
-                        }
-                    })
-                },
-                startLanding = {
-                    basicAircraftControlVM.startLanding(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
-                        override fun onSuccess(t: EmptyMsg?) {
-                            ToastUtils.showToast("Landing initiated successfully")
-                        }
-                        override fun onFailure(error: IDJIError) {
-                            ToastUtils.showToast("Failed to land: $error")
-                        }
-                    })
+            // Prompt for API key if needed
+            KeyValueDialogUtil.showInputDialog(
+                activity,
+                "Enter OpenAI API Key",
+                "",
+                "OpenAI API Key required for image analysis",
+                false
+            ) { apiKey ->
+                if (apiKey.isNullOrEmpty()) {
+                    ToastUtils.showToast("API Key is required for image analysis")
+                    return@showInputDialog
                 }
-            )
+                
+                // Initialize with context and API key
+                virtualStickVM.initialize(requireContext(), apiKey)
+                
+                ToastUtils.showToast("Starting image capture and AI analysis")
+                virtualStickVM.performAutoFlight(
+                    startTakeOff = {
+                        basicAircraftControlVM.startTakeOff(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
+                            override fun onSuccess(t: EmptyMsg?) {
+                                ToastUtils.showToast("Take off initiated successfully")
+                            }
+                            override fun onFailure(error: IDJIError) {
+                                ToastUtils.showToast("Failed to take off: $error")
+                            }
+                        })
+                    },
+                    startLanding = {
+                        basicAircraftControlVM.startLanding(object : CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
+                            override fun onSuccess(t: EmptyMsg?) {
+                                ToastUtils.showToast("Landing initiated successfully")
+                            }
+                            override fun onFailure(error: IDJIError) {
+                                ToastUtils.showToast("Failed to land: $error")
+                            }
+                        })
+                    }
+                )
+            }
         }
     }
 

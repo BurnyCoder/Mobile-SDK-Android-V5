@@ -82,7 +82,7 @@ More refer to the release notes." </string>
     <string name="send_virtual_stick_advanced_param">Send Virtual Stick Advanced Param</string>
     <string name="enable_virtual_stick_advanced_mode">Enable Virtual Stick Advanced Mode</string>
     <string name="disable_virtual_stick_advanced_mode">Disable Virtual Stick Advanced Mode</string>
-    <string name="btn_auto_flight">Auto Flight (Take Off, Forward, Spin, Land)</string>
+    <string name="btn_auto_flight">Test Image Capture and AI Analysis</string>
 
     <string name="btn_take_off">Take Off</string>
     <string name="btn_landing">Landing</string>
