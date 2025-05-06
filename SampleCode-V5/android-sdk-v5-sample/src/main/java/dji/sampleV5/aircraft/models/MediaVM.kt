@@ -341,6 +341,7 @@ class MediaVM : DJIViewModel() {
                                                     override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                                     override fun innerCode(): String = "0"
                                                     override fun hint(): String = "Try with a different image"
+                                                    override fun isError(p0: String): Boolean = p0 == errorCode()
                                                 })
                                             }
                                         } catch (e: IOException) {
@@ -351,6 +352,7 @@ class MediaVM : DJIViewModel() {
                                                 override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                                 override fun innerCode(): String = "0"
                                                 override fun hint(): String = "Check file system permissions"
+                                                override fun isError(p0: String): Boolean = p0 == errorCode()
                                             })
                                         }
                                     }
@@ -363,6 +365,7 @@ class MediaVM : DJIViewModel() {
                                             override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                             override fun innerCode(): String = "0"
                                             override fun hint(): String = "Try again later"
+                                            override fun isError(p0: String): Boolean = p0 == errorCode()
                                         })
                                     }
                                 })
@@ -374,6 +377,7 @@ class MediaVM : DJIViewModel() {
                                     override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                     override fun innerCode(): String = "0"
                                     override fun hint(): String = "Check available storage space"
+                                    override fun isError(p0: String): Boolean = p0 == errorCode()
                                 })
                             }
                         } else {
@@ -384,6 +388,7 @@ class MediaVM : DJIViewModel() {
                                 override fun errorType(): ErrorType = ErrorType.UNKNOWN
                                 override fun innerCode(): String = "0"
                                 override fun hint(): String = "Take a photo first"
+                                override fun isError(p0: String): Boolean = p0 == errorCode()
                             })
                         }
                     }
