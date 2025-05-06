@@ -1,3 +1,12 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://chaquo.com/maven" }
+        gradlePluginPortal()
+    }
+}
+
 include ':sample'
 project(':sample').projectDir = new File(rootProject.projectDir, '../android-sdk-v5-sample')
 

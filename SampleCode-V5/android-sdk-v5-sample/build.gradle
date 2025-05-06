@@ -153,5 +153,5 @@ dependencies {
     implementation deps.lynx
     
     // Python for Android (Chaquopy)
-    implementation 'com.chaquo.python:android:16.0.0'
+    // Note: Chaquopy is applied as a plugin, no need for a library dependency
 }
