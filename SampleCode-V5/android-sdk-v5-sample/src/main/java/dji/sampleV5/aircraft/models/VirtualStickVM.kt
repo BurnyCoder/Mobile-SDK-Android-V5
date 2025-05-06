@@ -2,8 +2,10 @@ package dji.sampleV5.aircraft.models
 
 import androidx.lifecycle.MutableLiveData
 import dji.sdk.keyvalue.key.RemoteControllerKey
+import dji.sdk.keyvalue.value.common.EmptyMsg
 import dji.sdk.keyvalue.value.flightcontroller.*
 import dji.v5.common.callback.CommonCallbacks
+import dji.v5.common.error.IDJIError
 import dji.v5.et.create
 import dji.v5.et.listen
 import dji.v5.manager.KeyManager
