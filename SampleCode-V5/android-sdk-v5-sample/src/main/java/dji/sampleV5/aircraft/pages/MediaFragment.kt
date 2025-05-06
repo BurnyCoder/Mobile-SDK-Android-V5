@@ -209,7 +209,21 @@ class MediaFragment : DJIFragment() {
                 }
 
             })
+        }
+        
+        binding?.btnAnalyzeWithAi?.setOnClickListener {
+            // Show a loading indicator if needed
+            ToastUtils.showToast("Taking photo and analyzing with AI...")
+            
+            mediaVM.captureAndAnalyzeWithAI(object : CommonCallbacks.CompletionCallbackWithParam<String> {
+                override fun onSuccess(result: String) {
+                    ToastUtils.showToast("Analysis complete: $result")
+                }
 
+                override fun onFailure(error: IDJIError) {
+                    ToastUtils.showToast("AI analysis failed: ${error.description()}")
+                }
+            })
         }
     }
 

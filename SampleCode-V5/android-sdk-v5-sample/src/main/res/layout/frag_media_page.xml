@@ -186,6 +186,14 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/btn_take_photo" />
 
+            <Button
+                android:id="@+id/btn_analyze_with_ai"
+                style="@style/main_fragment_btn"
+                android:text="@string/analyze_with_ai"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/btn_format" />
+
 
 
         </androidx.constraintlayout.widget.ConstraintLayout>

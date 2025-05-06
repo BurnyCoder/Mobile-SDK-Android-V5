@@ -1,6 +1,7 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
+apply plugin: 'com.chaquo.python'
 
 android {
     compileSdkVersion Integer.parseInt(project.ANDROID_COMPILE_SDK_VERSION)
@@ -17,6 +18,23 @@ android {
         ndk {
             //noinspection ChromeOsAbiSupport
             abiFilters 'arm64-v8a'
+        }
+        
+        // Python configuration for Chaquopy
+        python {
+            buildPython "cp310"  // Version of Python to use
+            pip {
+                install "openai"
+                install "opencv-python"
+                install "python-dotenv"
+                install "ultralytics"
+            }
+            // Source directory for Python code
+            sourceSets {
+                main {
+                    python.srcDir "src/main/python"
+                }
+            }
         }
     }
 
@@ -129,4 +147,7 @@ dependencies {
     implementation deps.dom
     kapt deps.glidecompiler
     implementation deps.lynx
+    
+    // Python for Android (Chaquopy)
+    implementation 'com.chaquo.python:android:13.0.0'
 }

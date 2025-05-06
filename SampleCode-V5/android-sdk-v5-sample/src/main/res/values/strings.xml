@@ -450,6 +450,7 @@ More refer to the release notes." </string>
     <string name="unselect_files"> unselect file</string>
     <string name="fetch_files_list">fetch media file list</string>
     <string name="take_photo">take photo</string>
+    <string name="analyze_with_ai">Analyze with AI</string>
     <string name="already_download">file already download</string>
 
     <!-- LTE -->
