@@ -333,15 +333,6 @@ class VirtualStickVM : DJIViewModel() {
         textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "drone_analysis_${System.currentTimeMillis()}")
     }
     
-    override fun onCleared() {
-        KeyManager.getInstance().cancelListen(this)
-        VirtualStickManager.getInstance().clearAllVirtualStickStateListener()
-        
-        // Clean up TTS resources
-        textToSpeech?.stop()
-        textToSpeech?.shutdown()
-    }
-    
     fun performAutoFlight(startTakeOff: () -> Unit, startLanding: () -> Unit) {
         val flightHandler = android.os.Handler(android.os.Looper.getMainLooper())
         
