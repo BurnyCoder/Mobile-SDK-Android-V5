@@ -28,16 +28,8 @@ import dji.v5.utils.common.LogUtils
 import dji.sampleV5.aircraft.util.ToastUtils
 import dji.sdk.keyvalue.value.camera.CameraStorageLocation
 import dji.sdk.keyvalue.value.common.EmptyMsg
-import dji.v5.utils.common.ContextUtil
 import dji.v5.utils.common.DiskUtil
 import dji.v5.utils.common.StringUtils
-import java.io.BufferedOutputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import dji.v5.manager.datacenter.media.MediaFileListData
-import dji.v5.manager.datacenter.media.MediaFileListState
-import dji.v5.common.error.IDJIError.DJIError
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -286,7 +278,9 @@ class MediaVM : DJIViewModel() {
             override fun onSuccess() {
                 LogUtils.i(logTag, "Photo taken successfully, now retrieving latest image")
                 // Get the latest image
-                MediaDataCenter.getInstance().mediaManager.refreshFileList(object : CommonCallbacks.CompletionCallback {
+                MediaDataCenter.getInstance().mediaManager.pullMediaFileListFromCamera(
+                    PullMediaFileListParam.Builder().mediaFileIndex(0).count(10).build(),
+                    object : CommonCallbacks.CompletionCallback {
                     override fun onSuccess() {
                         // Get the latest media file
                         val mediaFiles = MediaDataCenter.getInstance().mediaManager.mediaFileListData.data
@@ -340,26 +334,41 @@ class MediaVM : DJIViewModel() {
                                             } else {
                                                 val errorMsg = "Failed to decode image"
                                                 LogUtils.e(logTag, errorMsg)
-                                                callback.onFailure(DJIError("Failed to decode image"))
+                                                callback.onFailure(object : IDJIError {
+                                                    override fun description(): String = "Failed to decode image"
+                                                    override fun errorCode(): Long = -1
+                                                })
                                             }
                                         } catch (e: IOException) {
                                             LogUtils.e(logTag, "Error closing streams: ${e.message}")
-                                            callback.onFailure(DJIError("Error processing image: ${e.message}"))
+                                            callback.onFailure(object : IDJIError {
+                                                override fun description(): String = "Error processing image: ${e.message}"
+                                                override fun errorCode(): Long = -1
+                                            })
                                         }
                                     }
                                     
                                     override fun onFailure(error: IDJIError?) {
                                         LogUtils.e(logTag, "Failed to download image: ${error?.description()}")
-                                        callback.onFailure(error ?: DJIError("Unknown error downloading image"))
+                                        callback.onFailure(error ?: object : IDJIError {
+                                            override fun description(): String = "Unknown error downloading image"
+                                            override fun errorCode(): Long = -1
+                                        })
                                     }
                                 })
                             } catch (e: Exception) {
                                 LogUtils.e(logTag, "Error setting up image download: ${e.message}")
-                                callback.onFailure(DJIError("Error setting up image download: ${e.message}"))
+                                callback.onFailure(object : IDJIError {
+                                    override fun description(): String = "Error setting up image download: ${e.message}"
+                                    override fun errorCode(): Long = -1
+                                })
                             }
                         } else {
                             LogUtils.e(logTag, "No media files found")
-                            callback.onFailure(DJIError("No media files found"))
+                            callback.onFailure(object : IDJIError {
+                                override fun description(): String = "No media files found"
+                                override fun errorCode(): Long = -1
+                            })
                         }
                     }
                     
