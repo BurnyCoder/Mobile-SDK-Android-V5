@@ -339,6 +339,7 @@ class MediaVM : DJIViewModel() {
                                                     override fun description(): String = "Failed to decode image"
                                                     override fun errorCode(): String = "-1"
                                                     override fun errorType(): ErrorType = ErrorType.UNKNOWN
+                                                    override fun innerCode(): String = "0"
                                                 })
                                             }
                                         } catch (e: IOException) {
@@ -347,6 +348,7 @@ class MediaVM : DJIViewModel() {
                                                 override fun description(): String = "Error processing image: ${e.message}"
                                                 override fun errorCode(): String = "-1"
                                                 override fun errorType(): ErrorType = ErrorType.UNKNOWN
+                                                override fun innerCode(): String = "0"
                                             })
                                         }
                                     }
@@ -357,6 +359,7 @@ class MediaVM : DJIViewModel() {
                                             override fun description(): String = "Unknown error downloading image"
                                             override fun errorCode(): String = "-1"
                                             override fun errorType(): ErrorType = ErrorType.UNKNOWN
+                                            override fun innerCode(): String = "0"
                                         })
                                     }
                                 })
@@ -366,6 +369,7 @@ class MediaVM : DJIViewModel() {
                                     override fun description(): String = "Error setting up image download: ${e.message}"
                                     override fun errorCode(): String = "-1"
                                     override fun errorType(): ErrorType = ErrorType.UNKNOWN
+                                    override fun innerCode(): String = "0"
                                 })
                             }
                         } else {
@@ -374,6 +378,7 @@ class MediaVM : DJIViewModel() {
                                 override fun description(): String = "No media files found"
                                 override fun errorCode(): String = "-1"
                                 override fun errorType(): ErrorType = ErrorType.UNKNOWN
+                                override fun innerCode(): String = "0"
                             })
                         }
                     }
