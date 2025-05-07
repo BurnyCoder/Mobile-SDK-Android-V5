@@ -33,6 +33,7 @@ import dji.v5.utils.common.DiskUtil
 import dji.v5.utils.common.StringUtils
 import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.ArrayList
@@ -220,24 +221,30 @@ class MediaVM : DJIViewModel() {
                     val result = textToSpeech?.setLanguage(Locale.US)
                     if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                         LogUtils.e(logTag, "Language not supported for TTS")
+                        ToastUtils.showToast("TTS Error: English language not supported on this device")
                     } else {
                         ttsInitialized = true
+                        ToastUtils.showToast("Text-to-speech initialized successfully")
                         textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                             override fun onStart(utteranceId: String?) {
                                 LogUtils.i(logTag, "TTS started")
+                                ToastUtils.showToast("Starting to speak analysis...")
                             }
 
                             override fun onDone(utteranceId: String?) {
                                 LogUtils.i(logTag, "TTS completed")
+                                ToastUtils.showToast("Finished speaking analysis")
                             }
 
                             override fun onError(utteranceId: String?) {
                                 LogUtils.e(logTag, "TTS error")
+                                ToastUtils.showToast("Error during speech playback")
                             }
                         })
                     }
                 } else {
                     LogUtils.e(logTag, "TTS initialization failed with status: $status")
+                    ToastUtils.showToast("Failed to initialize text-to-speech (status: $status)")
                 }
             }
         }
@@ -248,16 +255,20 @@ class MediaVM : DJIViewModel() {
      */
     fun speakText(text: String) {
         if (!ttsInitialized) {
+            ToastUtils.showToast("TTS not ready, initializing...")
             initTTS()
             // Wait a bit for TTS to initialize if needed
             android.os.Handler().postDelayed({
                 if (ttsInitialized) {
+                    ToastUtils.showToast("TTS initialized, now speaking...")
                     textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "djiAiAnalysis")
                 } else {
                     LogUtils.e(logTag, "TTS not initialized, can't speak text")
+                    ToastUtils.showToast("Failed to initialize TTS, cannot speak analysis")
                 }
             }, 1000)
         } else {
+            ToastUtils.showToast("Speaking analysis result...")
             textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "djiAiAnalysis")
         }
     }
@@ -267,17 +278,22 @@ class MediaVM : DJIViewModel() {
      */
     fun captureAndAnalyzeWithAI(callback: CommonCallbacks.CompletionCallbackWithParam<String>) {
         // Initialize Python bridge
+        ToastUtils.showToast("Initializing AI analysis system...")
         PythonBridge.initialize()
         
         // Initialize TTS
         if (!ttsInitialized) {
+            ToastUtils.showToast("Initializing text-to-speech...")
             initTTS()
         }
         
         // First take a photo
+        ToastUtils.showToast("Taking photo for AI analysis...")
         takePhoto(object : CommonCallbacks.CompletionCallback {
             override fun onSuccess() {
                 LogUtils.i(logTag, "Photo taken successfully, now retrieving latest image")
+                ToastUtils.showToast("Photo captured, retrieving for analysis...")
+                
                 // Get the latest image
                 MediaDataCenter.getInstance().mediaManager.pullMediaFileListFromCamera(
                     PullMediaFileListParam.Builder().mediaFileIndex(0).count(10).build(),
@@ -287,6 +303,7 @@ class MediaVM : DJIViewModel() {
                         val mediaFiles = MediaDataCenter.getInstance().mediaManager.mediaFileListData.data
                         if (mediaFiles.isNotEmpty()) {
                             val latestFile = mediaFiles[0]
+                            ToastUtils.showToast("Found latest image, preparing for download...")
                             
                             // Download the image file
                             val tempFile = File(DiskUtil.getExternalCacheDirPath(ContextUtil.getContext(), "/temp_ai_image.jpg"))
@@ -297,13 +314,19 @@ class MediaVM : DJIViewModel() {
                                 outputStream = FileOutputStream(tempFile)
                                 bos = BufferedOutputStream(outputStream)
                                 
+                                ToastUtils.showToast("Downloading image for AI processing...")
                                 latestFile.pullOriginalMediaFileFromCamera(0, object : MediaFileDownloadListener {
                                     override fun onStart() {
                                         LogUtils.i(logTag, "Started downloading latest image")
+                                        ToastUtils.showToast("Starting image download...")
                                     }
                                     
                                     override fun onProgress(total: Long, current: Long) {
-                                        // Report progress if needed
+                                        // Report progress if total is large enough
+                                        if (total > 1000000 && current % 1000000 < 100000) { // Update roughly every MB
+                                            val progress = (current * 100 / total).toInt()
+                                            ToastUtils.showToast("Downloading: $progress%")
+                                        }
                                     }
                                     
                                     override fun onRealtimeDataUpdate(data: ByteArray, position: Long) {
@@ -311,6 +334,7 @@ class MediaVM : DJIViewModel() {
                                             bos?.write(data)
                                         } catch (e: IOException) {
                                             LogUtils.e(logTag, "Error writing image data: ${e.message}")
+                                            ToastUtils.showToast("Error writing image: ${e.message}")
                                         }
                                     }
                                     
@@ -320,21 +344,105 @@ class MediaVM : DJIViewModel() {
                                             bos?.close()
                                             outputStream?.close()
                                             
-                                            // Convert to bitmap for analysis
-                                            val bitmap = BitmapFactory.decodeFile(tempFile.absolutePath)
+                                            ToastUtils.showToast("Download complete, preparing for AI analysis...")
+                                            
+                                            // Check file details before decoding
+                                            val fileSize = tempFile.length()
+                                            val fileExists = tempFile.exists()
+                                            val canRead = tempFile.canRead()
+                                            ToastUtils.showToast("Image file: ${fileSize/1024}KB, exists=$fileExists, readable=$canRead")
+                                            LogUtils.i(logTag, "Image file details: size=${fileSize}B, exists=$fileExists, readable=$canRead")
+
+                                            // Setup decoding options
+                                            val options = BitmapFactory.Options().apply {
+                                                inPreferredConfig = Bitmap.Config.ARGB_8888
+                                                inJustDecodeBounds = true // First just get dimensions
+                                            }
+                                            
+                                            // First pass - just get dimensions
+                                            BitmapFactory.decodeFile(tempFile.absolutePath, options)
+                                            val imageWidth = options.outWidth
+                                            val imageHeight = options.outHeight
+                                            val mimeType = options.outMimeType
+                                            
+                                            if (imageWidth > 0 && imageHeight > 0) {
+                                                ToastUtils.showToast("Image dimensions: ${imageWidth}x${imageHeight}, type: $mimeType")
+                                                LogUtils.i(logTag, "Image dimensions: ${imageWidth}x${imageHeight}, type: $mimeType")
+                                                
+                                                // Reset options for full decode
+                                                options.inJustDecodeBounds = false
+                                            } else {
+                                                ToastUtils.showToast("WARNING: Could not detect image dimensions!")
+                                                LogUtils.e(logTag, "Failed to get image dimensions. File may be corrupt.")
+                                            }
+                                            
+                                            // Convert to bitmap for analysis - with detailed error tracking
+                                            val decodeStartTime = System.currentTimeMillis()
+                                            ToastUtils.showToast("Decoding image file...")
+                                            
+                                            val bitmap = try {
+                                                BitmapFactory.decodeFile(tempFile.absolutePath, options)
+                                            } catch (e: Exception) {
+                                                ToastUtils.showToast("ERROR during bitmap decode: ${e.message}")
+                                                LogUtils.e(logTag, "Exception during bitmap decode: ${e.message}")
+                                                e.printStackTrace()
+                                                null
+                                            }
+                                            
+                                            val decodeTime = System.currentTimeMillis() - decodeStartTime
+                                            
                                             if (bitmap != null) {
+                                                val bitmapConfig = bitmap.config?.name ?: "null"
+                                                ToastUtils.showToast("Image decoded: ${bitmap.width}x${bitmap.height}, config=$bitmapConfig in ${decodeTime}ms")
+                                                LogUtils.i(logTag, "Bitmap decoded: ${bitmap.width}x${bitmap.height}, config=$bitmapConfig in ${decodeTime}ms")
+                                                
                                                 // Analyze with OpenAI
+                                                ToastUtils.showToast("Starting OpenAI image analysis...")
+                                                val analysisStartTime = System.currentTimeMillis()
                                                 val result = PythonBridge.analyzeImageWithOpenAI(bitmap)
+                                                val analysisTime = System.currentTimeMillis() - analysisStartTime
+                                                
+                                                LogUtils.i(logTag, "AI analysis completed in ${analysisTime}ms with result: ${result.take(100)}...")
+                                                ToastUtils.showToast("Analysis completed in ${analysisTime/1000.0}s")
+                                                
                                                 aiAnalysisResult.postValue(result)
                                                 
                                                 // Speak the result
+                                                ToastUtils.showToast("Speaking analysis result...")
                                                 speakText(result)
                                                 
                                                 // Call the callback with success
                                                 callback.onSuccess(result)
                                             } else {
                                                 val errorMsg = "Failed to decode image"
-                                                LogUtils.e(logTag, errorMsg)
+                                                LogUtils.e(logTag, "$errorMsg: file may be corrupted")
+                                                ToastUtils.showToast("ERROR: $errorMsg - File may be corrupted")
+                                                
+                                                // Try an alternative approach
+                                                ToastUtils.showToast("Trying alternative decode method...")
+                                                try {
+                                                    val inputStream = FileInputStream(tempFile)
+                                                    val altBitmap = BitmapFactory.decodeStream(inputStream)
+                                                    inputStream.close()
+                                                    
+                                                    if (altBitmap != null) {
+                                                        ToastUtils.showToast("Alternative decode worked! ${altBitmap.width}x${altBitmap.height}")
+                                                        LogUtils.i(logTag, "Alternative decode success: ${altBitmap.width}x${altBitmap.height}")
+                                                        
+                                                        // Continue with analysis using alternative bitmap
+                                                        val result = PythonBridge.analyzeImageWithOpenAI(altBitmap)
+                                                        aiAnalysisResult.postValue(result)
+                                                        speakText(result)
+                                                        callback.onSuccess(result)
+                                                        return@onFinish
+                                                    } else {
+                                                        ToastUtils.showToast("Alternative decode also failed!")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    ToastUtils.showToast("Alt decode error: ${e.message}")
+                                                    LogUtils.e(logTag, "Alternative decode also failed: ${e.message}")
+                                                }
+                                                
                                                 callback.onFailure(object : IDJIError {
                                                     override fun description(): String = "Failed to decode image"
                                                     override fun errorCode(): String = "-1"
@@ -346,6 +454,7 @@ class MediaVM : DJIViewModel() {
                                             }
                                         } catch (e: IOException) {
                                             LogUtils.e(logTag, "Error closing streams: ${e.message}")
+                                            ToastUtils.showToast("IO Error: ${e.message}")
                                             callback.onFailure(object : IDJIError {
                                                 override fun description(): String = "Error processing image: ${e.message}"
                                                 override fun errorCode(): String = "-1"
@@ -359,6 +468,7 @@ class MediaVM : DJIViewModel() {
                                     
                                     override fun onFailure(error: IDJIError?) {
                                         LogUtils.e(logTag, "Failed to download image: ${error?.description()}")
+                                        ToastUtils.showToast("Download failed: ${error?.description()}")
                                         callback.onFailure(error ?: object : IDJIError {
                                             override fun description(): String = "Unknown error downloading image"
                                             override fun errorCode(): String = "-1"
@@ -371,6 +481,7 @@ class MediaVM : DJIViewModel() {
                                 })
                             } catch (e: Exception) {
                                 LogUtils.e(logTag, "Error setting up image download: ${e.message}")
+                                ToastUtils.showToast("Setup error: ${e.message}")
                                 callback.onFailure(object : IDJIError {
                                     override fun description(): String = "Error setting up image download: ${e.message}"
                                     override fun errorCode(): String = "-1"
@@ -382,6 +493,7 @@ class MediaVM : DJIViewModel() {
                             }
                         } else {
                             LogUtils.e(logTag, "No media files found")
+                            ToastUtils.showToast("No media files found")
                             callback.onFailure(object : IDJIError {
                                 override fun description(): String = "No media files found"
                                 override fun errorCode(): String = "-1"
@@ -395,6 +507,7 @@ class MediaVM : DJIViewModel() {
                     
                     override fun onFailure(error: IDJIError) {
                         LogUtils.e(logTag, "Failed to refresh file list: ${error.description()}")
+                        ToastUtils.showToast("Failed to get file list: ${error.description()}")
                         callback.onFailure(error)
                     }
                 })
@@ -402,6 +515,7 @@ class MediaVM : DJIViewModel() {
             
             override fun onFailure(error: IDJIError) {
                 LogUtils.e(logTag, "Failed to take photo: ${error.description()}")
+                ToastUtils.showToast("Failed to take photo: ${error.description()}")
                 callback.onFailure(error)
             }
         })

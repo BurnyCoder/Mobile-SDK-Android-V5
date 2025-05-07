@@ -24,6 +24,7 @@ import dji.v5.common.error.IDJIError
 import dji.v5.manager.datacenter.MediaDataCenter
 import dji.v5.manager.datacenter.media.MediaFile
 import dji.v5.manager.datacenter.media.MediaFileListState
+import dji.v5.utils.common.LogUtils
 
 /**
  * @author feel.feng
@@ -213,15 +214,47 @@ class MediaFragment : DJIFragment() {
         
         binding?.btnAnalyzeWithAi?.setOnClickListener {
             // Show a loading indicator if needed
-            ToastUtils.showToast("Taking photo and analyzing with AI...")
+            ToastUtils.showToast("Starting AI image analysis process...")
+            
+            // Disable button during processing to prevent multiple clicks
+            binding?.btnAnalyzeWithAi?.isEnabled = false
+            binding?.btnAnalyzeWithAi?.text = "AI Analysis Running..."
             
             mediaVM.captureAndAnalyzeWithAI(object : CommonCallbacks.CompletionCallbackWithParam<String> {
                 override fun onSuccess(result: String) {
-                    ToastUtils.showToast("Analysis complete: $result")
+                    // Display a condensed version of the result
+                    val maxLength = 150
+                    val displayResult = if (result.length > maxLength) {
+                        result.take(maxLength) + "..."
+                    } else {
+                        result
+                    }
+                    
+                    ToastUtils.showToast("Analysis complete!")
+                    ToastUtils.showToast(displayResult)
+                    
+                    // Restore button state
+                    activity?.runOnUiThread {
+                        binding?.btnAnalyzeWithAi?.isEnabled = true
+                        binding?.btnAnalyzeWithAi?.text = getString(R.string.analyze_with_ai)
+                    }
                 }
-
+                
                 override fun onFailure(error: IDJIError) {
                     ToastUtils.showToast("AI analysis failed: ${error.description()}")
+                    ToastUtils.showToast("Error details: ${error.errorType()}, code: ${error.errorCode()}")
+                    
+                    // Log additional error information
+                    val errorMsg = "AI analysis failed with error: ${error.description()}, " +
+                            "type: ${error.errorType()}, code: ${error.errorCode()}, " +
+                            "inner code: ${error.innerCode()}, hint: ${error.hint()}"
+                    LogUtils.e("MediaFragment", errorMsg)
+                    
+                    // Restore button state
+                    activity?.runOnUiThread {
+                        binding?.btnAnalyzeWithAi?.isEnabled = true
+                        binding?.btnAnalyzeWithAi?.text = getString(R.string.analyze_with_ai)
+                    }
                 }
             })
         }
